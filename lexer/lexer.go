@@ -1,6 +1,10 @@
 package lexer
 
 import (
+	"bufio"
+	"io"
+	"unicode"
+
 	"github.com/Kifen/monkey/token"
 )
 
@@ -10,147 +14,182 @@ type Position struct {
 }
 
 type Lexer struct {
-	input        string
-	position     int
-	readPosition int
-	ch           byte
-	//pos          Position
+	r          rune
+	pos          Position
+	reader *bufio.Reader
 }
 
-func New(input string) *Lexer {
-	l := &Lexer{input: input}
-	l.readChar()
-	return l
-}
-
-func (l *Lexer) readChar() {
-	if l.readPosition >= len(l.input) {
-		l.ch = 0
-	} else {
-		l.ch = l.input[l.readPosition]
-	}
-
-	l.position = l.readPosition
-	l.readPosition += 1
-}
-
-func (l *Lexer) peekChar() byte {
-	if l.readPosition >= len(l.input) {
-		return 0
-	} else {
-		return l.input[l.readPosition]
+func New(r io.Reader) *Lexer {
+	return &Lexer{
+		pos: Position{line: 1, column: 0},
+		reader: bufio.NewReader(r),
 	}
 }
 
-func newToken(tokenType token.TokenType, ch byte) token.Token {
+func (l *Lexer) resetPosition() {
+	l.pos.line++
+	l.pos.column = 0
+}
+
+
+func newToken(tokenType token.TokenType, ch rune) token.Token {
 	return token.Token{Type: tokenType, Literal: string(ch)}
 }
 
-func (l *Lexer) makeTwoCharToken() token.Token {
+func (l *Lexer) makeTwoCharToken(r rune) token.Token {
 	var tok token.Token
+	char := l.peekChar()
 
-	ch := l.ch
-
-	switch l.ch {
+	switch r {
 	case '!':
-		if l.peekChar() == '=' {
-			l.readChar()
-			tok = token.Token{Type: token.NOT_EQ, Literal: string(ch) + string(l.ch)}
-		} else {
-			tok = newToken(token.BANG, l.ch)
+		if char == '=' {
+			tok = token.Token{Type: token.NOT_EQ, Literal: string(r) + string(char)}
+		}else {
+			l.backup()
+			tok = newToken(token.BANG, r)
 		}
 	case '=':
-		if l.peekChar() == '=' {
-			l.readChar()
-			tok = token.Token{Type: token.EQ, Literal: string(ch) + string(l.ch)}
-		} else {
-			tok = newToken(token.ASSIGN, l.ch)
+		if char == '=' {
+			tok = token.Token{Type: token.EQ, Literal: string(r) + string(char)}
+		}else {
+			l.backup()
+			tok = newToken(token.ASSIGN, r)
 		}
 	}
 
 	return tok
+}
+
+func (l *Lexer) peekChar() rune {
+	r, _, err := l.reader.ReadRune()
+	if err != nil {
+		panic(err)
+	}
+
+	return r
 }
 
 func (l *Lexer) NextToken() token.Token {
 	var tok token.Token
-	l.skipWhitespace()
 
-	switch l.ch {
-	case '=':
-		tok = l.makeTwoCharToken()
-	case '!':
-		tok = l.makeTwoCharToken()
-	case ';':
-		tok = newToken(token.SEMICOLON, l.ch)
-	case '(':
-		tok = newToken(token.LPAREN, l.ch)
-	case ')':
-		tok = newToken(token.RPAREN, l.ch)
-	case ',':
-		tok = newToken(token.COMMA, l.ch)
-	case '+':
-		tok = newToken(token.PLUS, l.ch)
-	case '{':
-		tok = newToken(token.LBRACE, l.ch)
-	case '}':
-		tok = newToken(token.RBRACE, l.ch)
-	case '-':
-		tok = newToken(token.MINUS, l.ch)
-	case '/':
-		tok = newToken(token.SLASH, l.ch)
-	case '*':
-		tok = newToken(token.ASTERISK, l.ch)
-	case '<':
-		tok = newToken(token.LT, l.ch)
-	case '>':
-		tok = newToken(token.GT, l.ch)
-	case 0:
-		tok.Literal = ""
-		tok.Type = token.EOF
-	default:
-		if isLetter(l.ch) {
-			tok.Literal = l.readIdentifier()
-			tok.Type = token.LookupIdent(tok.Literal)
-			return tok
-		} else if isDigit(l.ch) {
-			tok.Type = token.INT
-			tok.Literal = l.readNumber()
-			return tok
-		} else {
-			tok = newToken(token.ILLEGAL, l.ch)
+	for {
+		r, _, err := l.reader.ReadRune()
+		if err != nil {
+			if err == io.EOF {
+				tok.Literal = ""
+				tok.Type = token.EOF
+				return tok
+			}
+
+			// at this point there isn't much we can do, and the compiler
+			// should just return the raw error to the user
+			panic(err)
+		}
+
+		// update the column to the position of the newly read in rune
+		l.pos.column++
+
+		switch r {
+		case '\n':
+			l.resetPosition()
+		case '=':
+			return l.makeTwoCharToken(r)
+		case '!':
+			return l.makeTwoCharToken(r)
+		case ';':
+			return newToken(token.SEMICOLON, r)
+		case '(':
+			return newToken(token.LPAREN, r)
+		case ')':
+			return newToken(token.RPAREN, r)
+		case ',':
+			return newToken(token.COMMA, r)
+		case '+':
+			return newToken(token.PLUS, r)
+		case '{':
+			return newToken(token.LBRACE, r)
+		case '}':
+			return newToken(token.RBRACE, r)
+		case '-':
+			return newToken(token.MINUS, r)
+		case '/':
+			return newToken(token.SLASH, r)
+		case '*':
+			return newToken(token.ASTERISK, r)
+		case '<':
+			return newToken(token.LT, r)
+		case '>':
+			return newToken(token.GT, r)
+		default:
+			if unicode.IsSpace(r) {
+				continue
+			} else if unicode.IsDigit(r){
+				//startPos := l.pos
+				l.backup()
+				tok.Literal = l.readInt()
+				tok.Type = token.INT
+				return tok
+			} else if unicode.IsLetter(r) {
+				//startPos := l.pos
+				l.backup()
+				tok.Literal = l.readIdentifier()
+				tok.Type = token.LookupIdent(tok.Literal)
+				return tok
+			} else {
+				return newToken(token.ILLEGAL, r)
+			}
 		}
 	}
+}
 
-	l.readChar()
-	return tok
+func (l *Lexer) backup() {
+	if err := l.reader.UnreadRune(); err != nil {
+		panic(err)
+	}
+
+	l.pos.column--
+}
+
+func (l *Lexer) readInt() string {
+	var lit string
+
+	for {
+		r, _, err := l.reader.ReadRune()
+		if err != nil {
+			if err == io.EOF {
+				// at the end of the int
+				return lit
+			}
+		}
+
+		l.pos.column++
+		if unicode.IsDigit(r) {
+			lit = lit + string(r)
+		} else {
+			l.backup()
+			return lit
+		}
+	}
 }
 
 func (l *Lexer) readIdentifier() string {
-	position := l.position
-	for isLetter(l.ch) {
-		l.readChar()
-	}
-	return l.input[position:l.position]
-}
+	var lit string
 
-func (l *Lexer) readNumber() string {
-	position := l.position
-	for isDigit(l.ch) {
-		l.readChar()
-	}
-	return l.input[position:l.position]
-}
+	for {
+		r, _, err := l.reader.ReadRune()
+		if err != nil {
+			if err == io.EOF {
+				// at the end of the int
+				return lit
+			}
+		}
 
-func isDigit(ch byte) bool {
-	return '0' <= ch && ch <= '9'
-}
-
-func isLetter(ch byte) bool {
-	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_'
-}
-
-func (l *Lexer) skipWhitespace() {
-	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
-		l.readChar()
+		l.pos.column++
+		if unicode.IsLetter(r) {
+			lit = lit + string(r)
+		} else {
+			l.backup()
+			return lit
+		}
 	}
 }
