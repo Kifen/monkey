@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"testing"
 	"github.com/Kifen/monkey/token"
@@ -98,8 +99,9 @@ func TestNextToken(t *testing.T) {
 
 	for i, tt := range tests {
 		tok := l.NextToken()
-		println("tok:: ",tok.Literal)
-		println("tt:: ", tt.expectedLiteral)
+		fmt.Println("Position: ", tok.Position)
+		//println("tok:: ",tok.Literal)
+		//println("tt:: ", tt.expectedLiteral)
 		if tok.Type != tt.expectedType {
 			t.Fatalf("tests[%d] - tokentype wrong. expected=%q, got=%q", i, tt.expectedType, tok.Type)
 		}

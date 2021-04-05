@@ -2,39 +2,45 @@ package token
 
 type TokenType string
 
+type Position struct {
+	Line   int
+	Column int
+}
+
 type Token struct {
-	Type    TokenType
-	Literal string
+	Type     TokenType
+	Literal  string
+	Position Position
 }
 
 const (
 	EOF       = "EOF"
 	ILLEGAL   = "ILLEGAL"
 	INT       = "INT"
-	ASSIGN    = "="
-	PLUS      = "+"
-	COMMA     = ","
-	SEMICOLON = ";"
-	LPAREN    = "("
-	RPAREN    = ")"
-	LBRACE    = "{"
-	RBRACE    = "}"
+	ASSIGN    = "ASSIGN"
+	PLUS      = "PLUS"
+	COMMA     = "COMMA"
+	SEMICOLON = "SEMICOLON"
+	LPAREN    = "LPAREN"
+	RPAREN    = "RPAREN"
+	LBRACE    = "LBRACE"
+	RBRACE    = "RBRACE"
 	FUNCTION  = "FUNCTION"
 	LET       = "LET"
 	IDENT     = "IDENT"
-	BANG      = "!"
-	ASTERISK  = "*"
-	SLASH     = "/"
-	LT        = "<"
-	GT        = ">"
-	MINUS     = "-"
+	BANG      = "BANG"
+	ASTERISK  = "ASTERISK"
+	SLASH     = "SLASH"
+	LT        = "LT"
+	GT        = "GT"
+	MINUS     = "MINUS"
 	TRUE      = "TRUE"
 	FALSE     = "FALSE"
 	IF        = "IF"
 	ELSE      = "ELSE"
 	RETURN    = "RETURN"
-	EQ        = "=="
-	NOT_EQ    = "!="
+	EQ        = "EQUAL"
+	NOT_EQ    = "NOT-EQUAL"
 )
 
 var keywords = map[string]TokenType{

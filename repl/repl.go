@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
+	"os"
 
 	"github.com/Kifen/monkey/lexer"
 	"github.com/Kifen/monkey/token"
@@ -12,6 +14,7 @@ import (
 const PROMPT = ">> "
 
 func Start(in io.Reader, out io.Writer) {
+
 	scanner := bufio.NewScanner(in)
 
 	for {
@@ -21,8 +24,13 @@ func Start(in io.Reader, out io.Writer) {
 			return
 		}
 
-		line := scanner.Text()
-		l := lexer.New(line)
+		fileName := scanner.Text()
+
+		file, err := os.Open(fileName)
+		if err != nil {
+			log.Panicf("Failed to open file %s", err)
+		}
+		l := lexer.New(file)
 
 		for tok := l.NextToken(); tok.Type != token.EOF; tok = l.NextToken() {
 			fmt.Printf("%+v\n", tok)

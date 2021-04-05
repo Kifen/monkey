@@ -8,32 +8,26 @@ import (
 	"github.com/Kifen/monkey/token"
 )
 
-type Position struct {
-	line   int
-	column int
-}
-
 type Lexer struct {
-	r          rune
-	pos          Position
+	r      rune
+	pos    token.Position
 	reader *bufio.Reader
 }
 
 func New(r io.Reader) *Lexer {
 	return &Lexer{
-		pos: Position{line: 1, column: 0},
+		pos:    token.Position{Line: 1, Column: 0},
 		reader: bufio.NewReader(r),
 	}
 }
 
 func (l *Lexer) resetPosition() {
-	l.pos.line++
-	l.pos.column = 0
+	l.pos.Line++
+	l.pos.Column = 0
 }
 
-
-func newToken(tokenType token.TokenType, ch rune) token.Token {
-	return token.Token{Type: tokenType, Literal: string(ch)}
+func newToken(tokenType token.TokenType, ch rune, pos token.Position) token.Token {
+	return token.Token{Type: tokenType, Literal: string(ch), Position: pos}
 }
 
 func (l *Lexer) makeTwoCharToken(r rune) token.Token {
@@ -44,16 +38,16 @@ func (l *Lexer) makeTwoCharToken(r rune) token.Token {
 	case '!':
 		if char == '=' {
 			tok = token.Token{Type: token.NOT_EQ, Literal: string(r) + string(char)}
-		}else {
+		} else {
 			l.backup()
-			tok = newToken(token.BANG, r)
+			tok = newToken(token.BANG, r, l.pos)
 		}
 	case '=':
 		if char == '=' {
 			tok = token.Token{Type: token.EQ, Literal: string(r) + string(char)}
-		}else {
+		} else {
 			l.backup()
-			tok = newToken(token.ASSIGN, r)
+			tok = newToken(token.ASSIGN, r, l.pos)
 		}
 	}
 
@@ -87,7 +81,7 @@ func (l *Lexer) NextToken() token.Token {
 		}
 
 		// update the column to the position of the newly read in rune
-		l.pos.column++
+		l.pos.Column++
 
 		switch r {
 		case '\n':
@@ -97,46 +91,48 @@ func (l *Lexer) NextToken() token.Token {
 		case '!':
 			return l.makeTwoCharToken(r)
 		case ';':
-			return newToken(token.SEMICOLON, r)
+			return newToken(token.SEMICOLON, r, l.pos)
 		case '(':
-			return newToken(token.LPAREN, r)
+			return newToken(token.LPAREN, r, l.pos)
 		case ')':
-			return newToken(token.RPAREN, r)
+			return newToken(token.RPAREN, r, l.pos)
 		case ',':
-			return newToken(token.COMMA, r)
+			return newToken(token.COMMA, r, l.pos)
 		case '+':
-			return newToken(token.PLUS, r)
+			return newToken(token.PLUS, r, l.pos)
 		case '{':
-			return newToken(token.LBRACE, r)
+			return newToken(token.LBRACE, r, l.pos)
 		case '}':
-			return newToken(token.RBRACE, r)
+			return newToken(token.RBRACE, r, l.pos)
 		case '-':
-			return newToken(token.MINUS, r)
+			return newToken(token.MINUS, r, l.pos)
 		case '/':
-			return newToken(token.SLASH, r)
+			return newToken(token.SLASH, r, l.pos)
 		case '*':
-			return newToken(token.ASTERISK, r)
+			return newToken(token.ASTERISK, r, l.pos)
 		case '<':
-			return newToken(token.LT, r)
+			return newToken(token.LT, r, l.pos)
 		case '>':
-			return newToken(token.GT, r)
+			return newToken(token.GT, r, l.pos)
 		default:
 			if unicode.IsSpace(r) {
 				continue
-			} else if unicode.IsDigit(r){
-				//startPos := l.pos
+			} else if unicode.IsDigit(r) {
+				startPos := l.pos
 				l.backup()
 				tok.Literal = l.readInt()
 				tok.Type = token.INT
+				tok.Position = startPos
 				return tok
 			} else if unicode.IsLetter(r) {
-				//startPos := l.pos
+				startPos := l.pos
 				l.backup()
 				tok.Literal = l.readIdentifier()
 				tok.Type = token.LookupIdent(tok.Literal)
+				tok.Position = startPos
 				return tok
 			} else {
-				return newToken(token.ILLEGAL, r)
+				return newToken(token.ILLEGAL, r, token.Position{})
 			}
 		}
 	}
@@ -147,7 +143,7 @@ func (l *Lexer) backup() {
 		panic(err)
 	}
 
-	l.pos.column--
+	l.pos.Column--
 }
 
 func (l *Lexer) readInt() string {
@@ -162,7 +158,7 @@ func (l *Lexer) readInt() string {
 			}
 		}
 
-		l.pos.column++
+		l.pos.Column++
 		if unicode.IsDigit(r) {
 			lit = lit + string(r)
 		} else {
@@ -184,7 +180,7 @@ func (l *Lexer) readIdentifier() string {
 			}
 		}
 
-		l.pos.column++
+		l.pos.Column++
 		if unicode.IsLetter(r) {
 			lit = lit + string(r)
 		} else {
